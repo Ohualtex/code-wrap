@@ -1,28 +1,31 @@
-/* Only positively identified classic response blocks are eligible. */
-html[data-code-wrap-enabled][data-code-wrap-site="chatgpt"]
-  [data-markdown-text-style="assistant-message"]
-  [data-code-block="true"]
-  .chatgpt-code-scrollport
-  :is(pre, code):not(
-    :where(
-      [contenteditable]:not([contenteditable="false"]),
-      [contenteditable]:not([contenteditable="false"]) *,
-      .cm-editor,
-      .cm-editor *,
-      .CodeMirror,
-      .CodeMirror *,
-      .monaco-editor,
-      .monaco-editor *,
-      .writing-block-editor,
-      .writing-block-editor *
-    )
-  ) {
-  white-space: pre-wrap !important;
-  overflow-wrap: anywhere !important;
-  min-width: 0 !important;
-  max-width: 100% !important;
+/* Declare early: layered important rules outrank unlayered important rules. */
+@layer code-wrap-overrides {
+  html[data-code-wrap-enabled][data-code-wrap-site="chatgpt"]
+    [data-markdown-text-style="assistant-message"]
+    [data-code-block="true"]
+    .chatgpt-code-scrollport
+    :is(pre, code):not(
+      :where(
+        [contenteditable]:not([contenteditable="false"]),
+        [contenteditable]:not([contenteditable="false"]) *,
+        .cm-editor,
+        .cm-editor *,
+        .CodeMirror,
+        .CodeMirror *,
+        .monaco-editor,
+        .monaco-editor *,
+        .writing-block-editor,
+        .writing-block-editor *
+      )
+    ) {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
 }
 
+/* Only positively identified classic response blocks are eligible. */
 html[data-code-wrap-enabled][data-code-wrap-site="gemini"]
   model-response code-block
   :is(pre, pre > code):not(
@@ -41,6 +44,26 @@ html[data-code-wrap-enabled][data-code-wrap-site="gemini"]
   ) {
   white-space: pre-wrap !important;
   overflow-wrap: anywhere !important;
+}
+
+/* This Gemini layout has native left padding of 32px and no right padding. */
+html[data-code-wrap-enabled][data-code-wrap-site="gemini"]
+  model-response code-block.enable-luminous-code-block
+  .formatted-code-block-internal-container:not(
+    :where(
+      [contenteditable]:not([contenteditable="false"]),
+      [contenteditable]:not([contenteditable="false"]) *,
+      .cm-editor,
+      .cm-editor *,
+      .CodeMirror,
+      .CodeMirror *,
+      .monaco-editor,
+      .monaco-editor *,
+      .writing-block-editor,
+      .writing-block-editor *
+    )
+  ) {
+  padding-right: 32px !important;
 }
 
 html[data-code-wrap-enabled][data-code-wrap-site="claude"]
