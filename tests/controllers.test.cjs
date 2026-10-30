@@ -39,6 +39,7 @@ function background(initial = {}) {
   const chrome = {
     action: {
       onClicked: clicked,
+      async setIcon({ path: icons }) { toolbar.icon = { ...icons }; },
       async setBadgeText({ text }) { toolbar.badge = text; },
       async setBadgeBackgroundColor({ color }) { toolbar.color = color; },
       async setTitle({ title }) { toolbar.title = title; },
@@ -115,12 +116,16 @@ test("manifest limits execution to the three approved HTTPS hosts", () => {
 test("first run is on without writing an unnecessary default", async () => {
   const app = background();
   await settle();
-  assert.equal(app.toolbar.badge, "ON");
+  assert.equal(app.toolbar.badge, "");
+  assert.equal(app.toolbar.icon[16], "icons/wrap-on-16.png");
+  assert.equal(app.toolbar.title, "Code Wrap: wrapping on. Click to turn off.");
   assert.deepEqual(app.writes, []);
   app.clicked.emit();
   await settle();
   assert.equal(app.stored.enabled, false);
-  assert.equal(app.toolbar.badge, "OFF");
+  assert.equal(app.toolbar.badge, "");
+  assert.equal(app.toolbar.icon[16], "icons/wrap-off-16.png");
+  assert.equal(app.toolbar.title, "Code Wrap: wrapping off. Click to turn on.");
 });
 
 test("rapid toolbar clicks are serialized without losing toggles", async () => {
@@ -128,7 +133,8 @@ test("rapid toolbar clicks are serialized without losing toggles", async () => {
   for (let index = 0; index < 10; index += 1) app.clicked.emit();
   await settle();
   assert.deepEqual(app.writes, [false, true, false, true, false, true, false, true, false, true]);
-  assert.equal(app.toolbar.badge, "ON");
+  assert.equal(app.toolbar.badge, "");
+  assert.equal(app.toolbar.icon[32], "icons/wrap-on-32.png");
 });
 
 test("a worker restart and install event preserve a saved off preference", async () => {
@@ -136,7 +142,8 @@ test("a worker restart and install event preserve a saved off preference", async
   app.startup.emit();
   app.installed.emit();
   await settle();
-  assert.equal(app.toolbar.badge, "OFF");
+  assert.equal(app.toolbar.badge, "");
+  assert.equal(app.toolbar.icon[16], "icons/wrap-off-16.png");
   assert.deepEqual(app.writes, []);
 });
 
@@ -148,11 +155,47 @@ test("a failed write keeps the preference and a later click recovers", async () 
   await settle();
   assert.equal(app.stored.enabled, true);
   assert.equal(app.toolbar.badge, "!");
+  assert.equal(app.toolbar.icon[16], "icons/wrap-on-16.png");
+  assert.equal(app.toolbar.title, "Code Wrap: could not update wrapping. Click to retry.");
   assert.equal(app.errors.length, 1);
   app.clicked.emit();
   await settle();
   assert.equal(app.stored.enabled, false);
-  assert.equal(app.toolbar.badge, "OFF");
+  assert.equal(app.toolbar.badge, "");
+  assert.equal(app.toolbar.icon[16], "icons/wrap-off-16.png");
+});
+
+test("toolbar icons follow settings changed outside the worker", async () => {
+  const app = background();
+  await settle();
+  app.stored.enabled = false;
+  app.changed.emit({ enabled: { newValue: false } }, "local");
+  await settle();
+  assert.equal(app.toolbar.icon[16], "icons/wrap-off-16.png");
+  assert.equal(app.toolbar.title, "Code Wrap: wrapping off. Click to turn on.");
+  delete app.stored.enabled;
+  app.changed.emit({ enabled: { oldValue: false } }, "local");
+  await settle();
+  assert.equal(app.toolbar.icon[16], "icons/wrap-on-16.png");
+});
+
+test("both icon states ship valid RGBA PNGs at every advertised size", () => {
+  const manifest = JSON.parse(source("manifest.json"));
+  for (const size of [16, 32, 48, 128]) {
+    assert.equal(manifest.icons[size], `icons/wrap-on-${size}.png`);
+    assert.equal(manifest.action.default_icon[size], manifest.icons[size]);
+    const states = ["on", "off"].map((state) => {
+      const png = fs.readFileSync(path.join(root, "icons", `wrap-${state}-${size}.png`));
+      assert.deepEqual(png.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+      assert.equal(png.toString("ascii", 12, 16), "IHDR");
+      assert.equal(png.readUInt32BE(16), size);
+      assert.equal(png.readUInt32BE(20), size);
+      assert.equal(png[24], 8);
+      assert.equal(png[25], 6, "icons must include an alpha channel");
+      return png;
+    });
+    assert.ok(!states[0].equals(states[1]), "on and off must have distinct graphics");
+  }
 });
 
 test("each supported host gets its own scope; disabling removes both markers", async () => {

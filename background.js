@@ -3,11 +3,19 @@
 let pending = Promise.resolve();
 
 async function updateAction(enabled) {
+  const state = enabled ? "on" : "off";
   await Promise.all([
-    chrome.action.setBadgeText({ text: enabled ? "ON" : "OFF" }),
-    chrome.action.setBadgeBackgroundColor({ color: enabled ? "#176B45" : "#596273" }),
+    chrome.action.setIcon({
+      path: {
+        16: `icons/wrap-${state}-16.png`,
+        32: `icons/wrap-${state}-32.png`,
+        48: `icons/wrap-${state}-48.png`,
+        128: `icons/wrap-${state}-128.png`,
+      },
+    }),
+    chrome.action.setBadgeText({ text: "" }),
     chrome.action.setTitle({
-      title: `Code Wrap: ${enabled ? "on" : "off"} on all supported sites. Click to ${enabled ? "disable" : "enable"}.`,
+      title: `Code Wrap: wrapping ${state}. Click to turn ${enabled ? "off" : "on"}.`,
     }),
   ]);
 }
@@ -24,7 +32,8 @@ function enqueue(operation) {
     try {
       await Promise.all([
         chrome.action.setBadgeText({ text: "!" }),
-        chrome.action.setTitle({ title: "Code Wrap: setting unavailable. Click to retry." }),
+        chrome.action.setBadgeBackgroundColor({ color: "#B3261E" }),
+        chrome.action.setTitle({ title: "Code Wrap: could not update wrapping. Click to retry." }),
       ]);
     } catch (actionError) {
       console.error("Code Wrap could not update its toolbar status.", actionError);
