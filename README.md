@@ -19,9 +19,14 @@ There is no build step and no package installation.
 ## Use
 
 Code Wrap is on by default. Click its toolbar icon to toggle wrapping across
-all three supported sites and all their open tabs. The badge shows **ON** or
-**OFF**. Your choice is saved locally and survives a browser restart.
+all three supported sites and all their open tabs. A bent return arrow means
+wrapping is on; a straight right arrow means it is off. Hover over the icon to
+see the current state and what clicking will do. Your choice is saved locally
+and survives a browser restart.
 A **!** badge means the setting could not be updated; click again to retry.
+
+The monochrome icons have transparent backgrounds. SVG sources and PNG outputs
+at 16, 32, 48, and 128 pixels are included in `icons/`.
 
 When off, Code Wrap's styles no longer apply. Each site resumes its own current
 layout, including any native wrapping preference you selected on that site.
