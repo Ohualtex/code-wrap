@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Code Wrap",
+  "version": "0.1.0",
+  "description": "Automatically wrap classic code blocks in ChatGPT, Gemini, and Claude without changing their text.",
+  "permissions": ["storage"],
+  "action": {
+    "default_title": "Code Wrap"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://gemini.google.com/*",
+        "https://claude.ai/*"
+      ],
+      "css": ["styles.css"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+/* Only positively identified classic response blocks are eligible. */
+html[data-code-wrap-enabled][data-code-wrap-site="chatgpt"]
+  [data-markdown-text-style="assistant-message"]
+  [data-code-block="true"]
+  .chatgpt-code-scrollport
+  :is(pre, code):not(
+    :where(
+      [contenteditable]:not([contenteditable="false"]),
+      [contenteditable]:not([contenteditable="false"]) *,
+      .cm-editor,
+      .cm-editor *,
+      .CodeMirror,
+      .CodeMirror *,
+      .monaco-editor,
+      .monaco-editor *,
+      .writing-block-editor,
+      .writing-block-editor *
+    )
+  ) {
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+html[data-code-wrap-enabled][data-code-wrap-site="gemini"]
+  model-response code-block
+  :is(pre, pre > code):not(
+    :where(
+      [contenteditable]:not([contenteditable="false"]),
+      [contenteditable]:not([contenteditable="false"]) *,
+      .cm-editor,
+      .cm-editor *,
+      .CodeMirror,
+      .CodeMirror *,
+      .monaco-editor,
+      .monaco-editor *,
+      .writing-block-editor,
+      .writing-block-editor *
+    )
+  ) {
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+}
+
+html[data-code-wrap-enabled][data-code-wrap-site="claude"]
+  [data-testid="assistant-message"] .standard-markdown
+  :is(pre.code-block__code, pre.code-block__code > code):not(
+    :where(
+      [contenteditable]:not([contenteditable="false"]),
+      [contenteditable]:not([contenteditable="false"]) *,
+      .cm-editor,
+      .cm-editor *,
+      .CodeMirror,
+      .CodeMirror *,
+      .monaco-editor,
+      .monaco-editor *,
+      .writing-block-editor,
+      .writing-block-editor *
+    )
+  ) {
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+}
