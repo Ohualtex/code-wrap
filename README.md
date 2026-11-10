@@ -25,8 +25,12 @@ see the current state and what clicking will do. Your choice is saved locally
 and survives a browser restart.
 A **!** badge means the setting could not be updated; click again to retry.
 
-The monochrome icons have transparent backgrounds. SVG sources and PNG outputs
-at 16, 32, 48, and 128 pixels are included in `icons/`.
+The toolbar icon switches between a dark arrow with a light outline in light
+mode and a light arrow with a dark outline in dark mode. The browser's reported
+color scheme may differ from a custom toolbar theme. If the color scheme is
+unavailable, the light arrow is used. The `icons/` folder contains SVG sources
+and PNGs at 16, 32, 48, and 128 pixels. The `-light-` PNGs reverse the two colors
+for light mode.
 
 When off, Code Wrap's styles no longer apply. Each site resumes its own current
 layout, including any native wrapping preference you selected on that site.
@@ -40,7 +44,8 @@ block layout is left alone rather than targeted with a broad fallback.
 
 - Works only on `https://chatgpt.com/*`, `https://gemini.google.com/*`, and
   `https://claude.ai/*` in the top-level document.
-- Uses the `storage` permission only, to save a single global `enabled` setting.
+- Uses `storage` to save the global wrapping setting and `offscreen` to listen
+  for changes to the preferred color scheme in a local extension document.
 - Does not read, rewrite, save, or transmit conversation text.
 - Does not intercept copy actions, rewrite code, or add newline characters.
 - Uses site-specific CSS and a small settings controller. No polling, DOM
