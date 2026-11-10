@@ -1,4 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#808080" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M3 12h18m-4-4 4 4-4 4"/>
-  <path d="M12 3v4m0 10v4"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <defs>
+    <path id="arrow" d="M3 12h18m-4-4 4 4-4 4M12 3v4m0 10v4"/>
+  </defs>
+  <use href="#arrow" stroke="#202124" stroke-width="3.9"/>
+  <use href="#arrow" stroke="#E8EAED" stroke-width="2.1"/>
 </svg>
