@@ -1,23 +1,49 @@
 "use strict";
 
+const themeDocument = "theme.html";
 let pending = Promise.resolve();
+let darkTheme = true;
+
+function updateIcon(enabled) {
+  const state = enabled ? "on" : "off";
+  const variant = darkTheme ? "" : "-light";
+  const path = Object.fromEntries([16, 32, 48, 128].map((size) => [
+    size, `icons/wrap-${state}${variant}-${size}.png`,
+  ]));
+  return chrome.action.setIcon({ path });
+}
 
 async function updateAction(enabled) {
   const state = enabled ? "on" : "off";
   await Promise.all([
-    chrome.action.setIcon({
-      path: {
-        16: `icons/wrap-${state}-16.png`,
-        32: `icons/wrap-${state}-32.png`,
-        48: `icons/wrap-${state}-48.png`,
-        128: `icons/wrap-${state}-128.png`,
-      },
-    }),
+    updateIcon(enabled),
     chrome.action.setBadgeText({ text: "" }),
     chrome.action.setTitle({
       title: `Code Wrap: wrapping ${state}. Click to turn ${enabled ? "off" : "on"}.`,
     }),
   ]);
+}
+
+async function readTheme() {
+  if (!chrome.offscreen?.createDocument || !chrome.runtime.getContexts) return;
+
+  try {
+    const contexts = await chrome.runtime.getContexts({
+      contextTypes: ["OFFSCREEN_DOCUMENT"],
+      documentUrls: [chrome.runtime.getURL(themeDocument)],
+    });
+    if (contexts.length === 0) {
+      await chrome.offscreen.createDocument({
+        url: themeDocument,
+        reasons: ["MATCH_MEDIA"],
+        justification: "Choose a readable toolbar icon for the preferred color scheme.",
+      });
+    }
+    const response = await chrome.runtime.sendMessage({ type: "get-color-scheme" });
+    if (typeof response?.dark === "boolean") darkTheme = response.dark;
+  } catch (error) {
+    console.warn("Code Wrap could not read the preferred color scheme.", error);
+  }
 }
 
 async function refreshAction() {
@@ -56,6 +82,24 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL(themeDocument)
+      || message?.type !== "color-scheme-changed" || typeof message.dark !== "boolean") return;
+
+  enqueue(async () => {
+    darkTheme = message.dark;
+    try {
+      const { enabled } = await chrome.storage.local.get("enabled");
+      await updateIcon(enabled !== false);
+    } catch (error) {
+      console.warn("Code Wrap could not refresh the toolbar icon color.", error);
+    }
+  });
+});
+
 chrome.runtime.onInstalled.addListener(() => enqueue(refreshAction));
 chrome.runtime.onStartup.addListener(() => enqueue(refreshAction));
-enqueue(refreshAction);
+enqueue(async () => {
+  await readTheme();
+  await refreshAction();
+});
