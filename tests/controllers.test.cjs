@@ -26,7 +26,7 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-function background(initial = {}, { dark = true, failTheme = false, existingTheme = false } = {}) {
+function background(initial = {}) {
   const stored = { ...initial };
   const writes = [];
   const errors = [];
@@ -34,17 +34,7 @@ function background(initial = {}, { dark = true, failTheme = false, existingThem
   const clicked = event();
   const installed = event();
   const startup = event();
-  const messages = event();
-  const themeMessages = event();
-  const themeChanges = event();
-  const warnings = [];
   const toolbar = {};
-  const extensionId = "code-wrap-test";
-  const getURL = (file) => `chrome-extension://${extensionId}/${file}`;
-  const themeSender = { id: extensionId, url: getURL("theme.html") };
-  const colorScheme = { matches: dark, addEventListener: (_, listener) => themeChanges.addListener(listener) };
-  let themeDocumentOpen = existingTheme;
-  let themeCreations = 0;
   let failNextWrite = false;
   const chrome = {
     action: {
@@ -70,45 +60,13 @@ function background(initial = {}, { dark = true, failTheme = false, existingThem
         },
       },
     },
-    runtime: {
-      id: extensionId, getURL, onInstalled: installed, onStartup: startup, onMessage: messages,
-      async getContexts() { return themeDocumentOpen ? [{}] : []; },
-      async sendMessage(message) {
-        let response;
-        themeMessages.emit(message, { id: extensionId }, (value) => { response = value; });
-        return response;
-      },
-    },
-    offscreen: {
-      async createDocument() {
-        if (failTheme) throw new Error("Offscreen unavailable");
-        themeDocumentOpen = true;
-        themeCreations += 1;
-      },
-    },
+    runtime: { onInstalled: installed, onStartup: startup },
   };
-  const logger = { error: (...args) => errors.push(args), warn: (...args) => warnings.push(args) };
-  vm.runInNewContext(source("theme.js"), {
-    window: { matchMedia: () => colorScheme },
-    chrome: {
-      runtime: {
-        id: extensionId,
-        onMessage: themeMessages,
-        async sendMessage(message) { messages.emit(message, themeSender); },
-      },
-    },
-    console: logger,
-  });
   vm.runInNewContext(source("background.js"), {
-    chrome, console: logger,
+    chrome, console: { error: (...args) => errors.push(args) },
   });
   return {
-    stored, writes, errors, warnings, changed, clicked, installed, startup, toolbar, messages, themeSender,
-    get themeCreations() { return themeCreations; },
-    changeTheme(matches) {
-      colorScheme.matches = matches;
-      themeChanges.emit({ matches });
-    },
+    stored, writes, errors, changed, clicked, installed, startup, toolbar,
     failWrite() { failNextWrite = true; },
   };
 }
@@ -141,7 +99,7 @@ function content({ initial = {}, hostname = "chatgpt.com", rootPresent = true, r
 test("manifest limits execution to the three approved HTTPS hosts", () => {
   const manifest = JSON.parse(source("manifest.json"));
   assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual(manifest.permissions, ["storage", "offscreen"]);
+  assert.deepEqual(manifest.permissions, ["storage"]);
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.content_scripts.length, 1);
   const script = manifest.content_scripts[0];
@@ -221,63 +179,13 @@ test("toolbar icons follow settings changed outside the worker", async () => {
   assert.equal(app.toolbar.icon[16], "icons/wrap-on-16.png");
 });
 
-test("a theme change updates both icon states without rewriting wrapping", async () => {
-  const app = background({ enabled: false }, { dark: false, existingTheme: true });
-  await settle();
-  assert.equal(app.themeCreations, 0);
-  assert.equal(app.toolbar.icon[16], "icons/wrap-off-light-16.png");
-
-  app.changeTheme(true);
-  app.clicked.emit();
-  await settle();
-  assert.equal(app.toolbar.icon[16], "icons/wrap-on-16.png");
-  assert.deepEqual(app.writes, [true]);
-
-  app.changeTheme(false);
-  await settle();
-  assert.equal(app.toolbar.icon[16], "icons/wrap-on-light-16.png");
-  assert.equal(app.toolbar.title, "Code Wrap: wrapping on. Click to turn off.");
-  assert.deepEqual(app.writes, [true]);
-});
-
-test("theme updates ignore invalid messages and preserve a wrapping error badge", async () => {
-  const app = background();
-  await settle();
-  app.messages.emit({ type: "color-scheme-changed", dark: false }, {
-    ...app.themeSender, url: "https://chatgpt.com/",
-  });
-  app.messages.emit({ type: "color-scheme-changed", dark: "false" }, app.themeSender);
-  await settle();
-  assert.equal(app.toolbar.icon[16], "icons/wrap-on-16.png");
-
-  app.failWrite();
-  app.clicked.emit();
-  app.changeTheme(false);
-  await settle();
-  assert.equal(app.toolbar.icon[16], "icons/wrap-on-light-16.png");
-  assert.equal(app.toolbar.badge, "!");
-  assert.equal(app.stored.enabled, undefined);
-});
-
-test("offscreen failure falls back to the default colors and leaves toggling available", async () => {
-  const app = background({}, { failTheme: true });
-  await settle();
-  assert.equal(app.toolbar.icon[16], "icons/wrap-on-16.png");
-  assert.equal(app.warnings.length, 1);
-  app.clicked.emit();
-  await settle();
-  assert.equal(app.toolbar.icon[16], "icons/wrap-off-16.png");
-  assert.equal(app.stored.enabled, false);
-  assert.equal(app.toolbar.badge, "");
-});
-
-test("both icon states and schemes ship valid RGBA PNGs at every advertised size", () => {
+test("both icon states ship valid RGBA PNGs at every advertised size", () => {
   const manifest = JSON.parse(source("manifest.json"));
   for (const size of [16, 32, 48, 128]) {
     assert.equal(manifest.icons[size], `icons/wrap-on-${size}.png`);
     assert.equal(manifest.action.default_icon[size], manifest.icons[size]);
-    const variants = ["on", "off", "on-light", "off-light"].map((variant) => {
-      const png = fs.readFileSync(path.join(root, "icons", `wrap-${variant}-${size}.png`));
+    const states = ["on", "off"].map((state) => {
+      const png = fs.readFileSync(path.join(root, "icons", `wrap-${state}-${size}.png`));
       assert.deepEqual(png.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
       assert.equal(png.toString("ascii", 12, 16), "IHDR");
       assert.equal(png.readUInt32BE(16), size);
@@ -286,7 +194,7 @@ test("both icon states and schemes ship valid RGBA PNGs at every advertised size
       assert.equal(png[25], 6, "icons must include an alpha channel");
       return png;
     });
-    assert.equal(new Set(variants.map((png) => png.toString("base64"))).size, 4);
+    assert.ok(!states[0].equals(states[1]), "on and off must have distinct graphics");
   }
 });
 
