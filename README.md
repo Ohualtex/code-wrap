@@ -1,12 +1,20 @@
 # Code Wrap
 
-A small Manifest V3 extension that automatically wraps long lines in classic
-response code blocks on **ChatGPT**, **Google Gemini**, and **Claude**.
+Wrap long lines in classic code blocks on AI chat sites with one toolbar button.
+Code Wrap preserves the original code and syntax highlighting.
+
+Current integrations include **Claude**, **Google Gemini**, and **ChatGPT**.
+The initial release targets **Google Chrome**.
+
+## Examples
+
+![An indented code block with Code Wrap off and on](docs/images/wrap-comparison-1.png)
+
+![A long line of code with Code Wrap off and on](docs/images/wrap-comparison-2.png)
 
 ## Install locally
 
-1. Open `chrome://extensions` in Chrome, `edge://extensions` in Edge, or
-   `brave://extensions` in Brave.
+1. Open `chrome://extensions` in Google Chrome.
 2. Enable **Developer mode**.
 3. Select **Load unpacked** and choose this folder (the one containing
    `manifest.json`).
@@ -19,33 +27,28 @@ There is no build step and no package installation.
 ## Use
 
 Code Wrap is on by default. Click its toolbar icon to toggle wrapping across
-all three supported sites and all their open tabs. A bent return arrow means
+supported sites and all their open tabs. A bent return arrow means
 wrapping is on; a straight right arrow means it is off. Hover over the icon to
 see the current state and what clicking will do. Your choice is saved locally
 and survives a browser restart.
 A **!** badge means the setting could not be updated; click again to retry.
 
-The toolbar icon switches between a dark arrow with a light outline in light
-mode and a light arrow with a dark outline in dark mode. The browser's reported
-color scheme may differ from a custom toolbar theme. If the color scheme is
-unavailable, the light arrow is used. The `icons/` folder contains SVG sources
-and PNGs at 16, 32, 48, and 128 pixels. The `-light-` PNGs reverse the two colors
-for light mode.
+Both toolbar icons use a light arrow with a dark outline for visibility on light
+and dark backgrounds. SVG sources and PNGs at 16, 32, 48, and 128 pixels are
+included in `icons/`.
 
-When off, Code Wrap's styles no longer apply. Each site resumes its own current
-layout, including any native wrapping preference you selected on that site.
+When Code Wrap is off, each site uses its own display settings, including any
+built-in word-wrap preference.
 
-Only identified classic response code blocks are eligible. Normal paragraphs,
-inline code, tables, editable areas, Monaco, CodeMirror, and writing editors are
-outside the scope. Claude Artifacts are not supported. An unrecognized code
-block layout is left alone rather than targeted with a broad fallback.
+Code Wrap targets classic response code blocks. Paragraphs, inline code, tables,
+and interactive editors keep their original layout.
 
 ## Privacy and implementation
 
-- Works only on `https://chatgpt.com/*`, `https://gemini.google.com/*`, and
-  `https://claude.ai/*` in the top-level document.
-- Uses `storage` to save the global wrapping setting and `offscreen` to listen
-  for changes to the preferred color scheme in a local extension document.
+- The current release applies its stylesheet and settings controller to
+  `https://claude.ai/*`, `https://gemini.google.com/*`, and
+  `https://chatgpt.com/*` in the top-level document.
+- Uses `storage` to save the global wrapping setting locally in your browser.
 - Does not read, rewrite, save, or transmit conversation text.
 - Does not intercept copy actions, rewrite code, or add newline characters.
 - Uses site-specific CSS and a small settings controller. No polling, DOM
@@ -55,17 +58,12 @@ Wrapping is visual: long tokens can break across display lines, and code blocks
 become taller. The source text remains unchanged. Native copy controls and manual
 selection still need verification when a site's renderer changes.
 
-## Compatibility and validation
+See the [privacy policy](PRIVACY.md) for details.
 
-The initial selectors were inspected in Chrome on October 30, 2026. Sites may
-change their markup or offer different layouts to different accounts. Current
-coverage includes ChatGPT's highlighted `pre > code` blocks and its plain-text
-blocks without `pre`, Gemini's `code-block` components, and Claude's classic
-response blocks. Older or different renderers are not automatically covered.
+## Validation
 
-The extension targets current Chromium browsers. Edge and Brave have not yet
-been verified. Live extension acceptance testing is pending local installation;
-DOM inspection alone is not proof that every acceptance criterion passes.
+Wrapping and the toolbar toggle have been checked in Chrome on the current
+integrations.
 
 Run the dependency-free controller tests and syntax checks with Node.js:
 
