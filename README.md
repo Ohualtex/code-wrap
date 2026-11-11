@@ -6,6 +6,8 @@ Code Wrap preserves the original code and syntax highlighting.
 Current integrations include **Claude**, **Google Gemini**, and **ChatGPT**.
 The initial release targets **Google Chrome**.
 
+[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/code-wrap/bfgcpcdlkncohhfgpegabmdcbgbjjilf)
+
 ## Examples
 
 ![An indented code block with Code Wrap off and on](docs/images/wrap-comparison-1.png)
