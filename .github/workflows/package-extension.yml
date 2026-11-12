@@ -1,0 +1,100 @@
+name: Package extension
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, such as v0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Validate release tag
+        shell: bash
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Enter a release tag in the form v0.1.0."
+            exit 1
+          fi
+
+      - name: Check out the tagged source
+        uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Run checks
+        run: |
+          node --test tests/controllers.test.cjs
+          node --check background.js
+          node --check content.js
+
+      - name: Build and verify the ZIP
+        id: zip
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          manifest = json.loads(Path("manifest.json").read_text(encoding="utf-8"))
+          version = manifest["version"]
+          tag = os.environ["RELEASE_TAG"]
+          if tag != f"v{version}":
+              raise SystemExit(f"Tag {tag} does not match manifest version {version}.")
+
+          package_files = {"manifest.json", "background.js", "content.js", "styles.css"}
+          package_files.update(
+              f"icons/wrap-{state}-{size}.png"
+              for state in ("on", "off")
+              for size in (16, 32, 48, 128)
+          )
+          referenced_files = {
+              manifest["background"]["service_worker"],
+              *manifest["icons"].values(),
+              *manifest["action"]["default_icon"].values(),
+          }
+          for script in manifest["content_scripts"]:
+              referenced_files.update(script.get("js", []))
+              referenced_files.update(script.get("css", []))
+
+          unexpected_files = referenced_files - package_files
+          if unexpected_files:
+              raise SystemExit(f"Manifest files missing from package list: {sorted(unexpected_files)}")
+
+          archive = Path(os.environ["RUNNER_TEMP"]) / f"code-wrap-{version}.zip"
+          with ZipFile(archive, "w", ZIP_DEFLATED) as package:
+              for file in sorted(package_files):
+                  package.write(file, file)
+
+          with ZipFile(archive) as package:
+              if set(package.namelist()) != package_files or package.testzip() is not None:
+                  raise SystemExit("ZIP verification failed.")
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              print(f"path={archive}", file=output)
+          print(f"Packaged {len(package_files)} files in {archive.name}.")
+          PY
+
+      - name: Upload the ZIP
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.zip.outputs.path }}
+          archive: false
+          if-no-files-found: error
