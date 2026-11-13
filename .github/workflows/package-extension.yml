@@ -1,6 +1,9 @@
 name: Package extension
 
 on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
     inputs:
       tag:
@@ -15,8 +18,11 @@ jobs:
   package:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      artifact-id: ${{ steps.artifact.outputs.artifact-id }}
+      digest: ${{ steps.zip.outputs.digest }}
     env:
-      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - name: Validate release tag
         shell: bash
@@ -29,8 +35,13 @@ jobs:
       - name: Check out the tagged source
         uses: actions/checkout@v6
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: ${{ github.event_name == 'push' && github.sha || format('refs/tags/{0}', inputs.tag) }}
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Verify the release comes from main
+        if: github.event_name == 'push'
+        run: git merge-base --is-ancestor HEAD refs/remotes/origin/main
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -50,6 +61,7 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          from hashlib import sha256
           from pathlib import Path
           from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -89,12 +101,58 @@ jobs:
 
           with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
               print(f"path={archive}", file=output)
+              print(f"digest={sha256(archive.read_bytes()).hexdigest()}", file=output)
           print(f"Packaged {len(package_files)} files in {archive.name}.")
           PY
 
       - name: Upload the ZIP
+        id: artifact
         uses: actions/upload-artifact@v7
         with:
           path: ${{ steps.zip.outputs.path }}
           archive: false
           if-no-files-found: error
+
+  submit-to-store:
+    if: github.event_name == 'push' && github.repository == 'Ohualtex/code-wrap' && vars.CWS_SUBMISSION_ENABLED == 'true'
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: chrome-web-store
+    concurrency: chrome-web-store
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.package.outputs.artifact-id }}
+          path: ${{ runner.temp }}/store-package
+
+      - name: Verify the approved ZIP
+        shell: bash
+        env:
+          PACKAGE_DIGEST: ${{ needs.package.outputs.digest }}
+        run: |
+          package="$RUNNER_TEMP/store-package/code-wrap-${GITHUB_REF_NAME#v}.zip"
+          printf '%s  %s\n' "$PACKAGE_DIGEST" "$package" | sha256sum --check
+
+      - name: Authenticate to Google
+        id: google
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          create_credentials_file: false
+          export_environment_variables: false
+
+      - name: Upload and submit for review
+        env:
+          CWS_ACCESS_TOKEN: ${{ steps.google.outputs.access_token }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+        run: python3 .github/scripts/submit-to-store.py "$RUNNER_TEMP/store-package/code-wrap-${GITHUB_REF_NAME#v}.zip"
